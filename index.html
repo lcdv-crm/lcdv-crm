@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#c9a84c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="LCDV CRM">
+  <meta name="description" content="Suivi commercial HORECA — Le Comptoir des Vins">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <title>LCDV — Suivi Commercial</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-inner">
+    <div class="logo-wrap">
+      <img src="icons/logo.jpg" alt="Le Comptoir des Vins" class="logo-img">
+      <div class="logo-text">
+        <span class="logo-name">Le Comptoir des Vins</span>
+        <span class="logo-sub">Suivi Commercial HORECA</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn-icon-header" onclick="exportCSV()" title="Exporter CSV">
+        <i class="ti ti-download"></i>
+      </button>
+      <button class="btn-primary-header" onclick="openCli(null)">
+        <i class="ti ti-plus"></i>
+        <span class="btn-label">Nouveau</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- BANNIÈRE INSTALL PWA -->
+<div id="install-banner" class="install-banner" style="display:none">
+  <img src="icons/icon-72.png" alt="" class="install-icon">
+  <div class="install-text">
+    <strong>Installer l'application</strong>
+    <span>Accès rapide depuis votre écran d'accueil</span>
+  </div>
+  <button class="install-btn" id="install-btn">Installer</button>
+  <button class="install-close" onclick="document.getElementById('install-banner').style.display='none'">
+    <i class="ti ti-x"></i>
+  </button>
+</div>
+
+<!-- NAVIGATION MOBILE (bottom tabs) -->
+<nav class="bottom-nav">
+  <button class="nav-btn on" onclick="goTab('map',this)" data-tab="map">
+    <i class="ti ti-map-pin"></i><span>Carte</span>
+  </button>
+  <button class="nav-btn" onclick="goTab('clients',this)" data-tab="clients">
+    <i class="ti ti-users"></i><span>Clients</span>
+  </button>
+  <button class="nav-btn nav-center-btn" onclick="openVisite()">
+    <div class="nav-center-inner"><i class="ti ti-plus"></i></div>
+    <span>Visite</span>
+  </button>
+  <button class="nav-btn" onclick="goTab('visites',this)" data-tab="visites">
+    <i class="ti ti-calendar-check"></i><span>Visites</span>
+  </button>
+  <button class="nav-btn" onclick="goTab('zones',this)" data-tab="zones">
+    <i class="ti ti-chart-bar"></i><span>Zones</span>
+  </button>
+  <button class="nav-btn" onclick="goTab('todo',this)" data-tab="todo">
+    <i class="ti ti-checklist"></i><span>To Do</span>
+    <span class="todo-badge" id="todo-badge" style="display:none"></span>
+  </button>
+</nav>
+
+<!-- CONTENU PRINCIPAL -->
+<main class="main">
+
+  <!-- ── CARTE ── -->
+  <div id="pg-map" class="pg on">
+    <div class="stats-strip">
+      <div class="stat-pill"><span class="stat-n" id="ms-tot">—</span><span class="stat-l">Clients</span></div>
+      <div class="stat-pill"><span class="stat-n" id="ms-rb">—</span><span class="stat-l">Restau.</span></div>
+      <div class="stat-pill"><span class="stat-n" id="ms-vi">—</span><span class="stat-l">Visites/mois</span></div>
+      <div class="stat-pill danger"><span class="stat-n" id="ms-nv">—</span><span class="stat-l">À relancer</span></div>
+    </div>
+
+    <div class="filter-row">
+      <div class="search-box">
+        <i class="ti ti-search search-icon"></i>
+        <input type="text" id="map-q" class="search-input" placeholder="Rechercher…" oninput="refreshMap()">
+      </div>
+      <button class="filter-btn" onclick="toggleFilters()">
+        <i class="ti ti-adjustments-horizontal"></i>
+        <span id="filter-count"></span>
+      </button>
+    </div>
+
+    <div class="filter-panel" id="filter-panel" style="display:none">
+      <select id="map-cat" class="select" onchange="refreshMap();updateFilterCount()">
+        <option value="">Toutes catégories</option>
+        <option>Restaurant / Brasserie</option>
+        <option>Hôtel / Autre</option>
+        <option>Traiteur / Épicerie fine</option>
+        <option>Boucherie / Boulangerie</option>
+        <option>Drink / Cave</option>
+      </select>
+      <select id="map-comm" class="select" onchange="refreshMap();updateFilterCount()">
+        <option value="">Tous commerciaux</option>
+      </select>
+      <select id="map-prod" class="select" onchange="refreshMap();updateFilterCount()">
+        <option value="">Tous produits</option>
+      </select>
+    </div>
+
+    <div class="legend-scroll">
+      <span class="leg"><span class="leg-dot" style="background:#185FA5"></span>Restaurant</span>
+      <span class="leg"><span class="leg-dot" style="background:#EF9F27"></span>Hôtel</span>
+      <span class="leg"><span class="leg-dot" style="background:#7F77DD"></span>Traiteur</span>
+      <span class="leg"><span class="leg-dot" style="background:#E24B4A"></span>Boucherie</span>
+      <span class="leg"><span class="leg-dot" style="background:#1D9E75"></span>Drink</span>
+      <span class="leg"><span class="leg-dot" style="background:#E24B4A;outline:2px solid #333;outline-offset:1px"></span>Non visité</span>
+    </div>
+
+    <div class="map-wrap"><div id="map"></div></div>
+  </div>
+
+  <!-- ── CLIENTS ── -->
+  <div id="pg-clients" class="pg">
+    <div class="filter-row">
+      <div class="search-box">
+        <i class="ti ti-search search-icon"></i>
+        <input type="text" id="sc" class="search-input" placeholder="Rechercher un client…" oninput="renderClients()">
+      </div>
+    </div>
+    <div class="chips-row" id="cat-filters">
+      <button class="filter-chip on" onclick="setCatFilter('',this)">Tous</button>
+      <button class="filter-chip" onclick="setCatFilter('Restaurant / Brasserie',this)">Restau.</button>
+      <button class="filter-chip" onclick="setCatFilter('Hôtel / Autre',this)">Hôtel</button>
+      <button class="filter-chip" onclick="setCatFilter('Traiteur / Épicerie fine',this)">Traiteur</button>
+      <button class="filter-chip" onclick="setCatFilter('Boucherie / Boulangerie',this)">Boucherie</button>
+      <button class="filter-chip" onclick="setCatFilter('Drink / Cave',this)">Drink</button>
+    </div>
+    <div id="clients-list" class="card-list"></div>
+  </div>
+
+  <!-- ── VISITES ── -->
+  <div id="pg-visites" class="pg">
+    <div class="filter-row">
+      <div class="search-box">
+        <i class="ti ti-search search-icon"></i>
+        <input type="text" id="sv" class="search-input" placeholder="Rechercher…" oninput="renderVisites()">
+      </div>
+      <select id="fv-cm" class="select" onchange="renderVisites()" style="max-width:150px">
+        <option value="">Tous</option>
+      </select>
+    </div>
+    <div id="visites-list" class="card-list"></div>
+  </div>
+
+  <!-- ── DISTRIBUTION ── -->
+  <div id="pg-zones" class="pg">
+    <p class="section-intro">Distribution des produits par catégorie de client</p>
+    <div id="zone-content"></div>
+  </div>
+  <!-- ── TO DO ── -->
+  <div id="pg-todo" class="pg">
+    <div class="todo-header-row">
+      <p class="section-intro" style="padding:0;flex:1">Tâches issues des RDV commerciaux</p>
+      <button class="btn-todo-add" onclick="openTodo(null)"><i class="ti ti-plus"></i> Nouvelle tâche</button>
+    </div>
+    <div class="todo-filters">
+      <button class="filter-chip on" onclick="setTodoFilter('all',this)">Toutes</button>
+      <button class="filter-chip" onclick="setTodoFilter('pending',this)">En cours</button>
+      <button class="filter-chip" onclick="setTodoFilter('done',this)">Terminées</button>
+    </div>
+    <div id="todo-list" class="card-list"></div>
+  </div>
+
+</main>
+
+<!-- ═══ MODAL CLIENT ═══ -->
+<div class="modal-overlay" id="mcli">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="mcli-title">Client</h2>
+      <button class="icon-btn-close" onclick="closeMod('mcli')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Établissement</label><input id="cl-soc" type="text" class="input" placeholder="Nom de l'établissement"></div>
+      <div class="field-row">
+        <div class="field"><label>Contact</label><input id="cl-con" type="text" class="input"></div>
+        <div class="field"><label>Téléphone</label><input id="cl-tel" type="tel" class="input"></div>
+      </div>
+      <div class="field"><label>Email</label><input id="cl-email" type="email" class="input"></div>
+      <div class="field-row">
+        <div class="field"><label>Catégorie</label>
+          <select id="cl-cat" class="select">
+            <option>Restaurant / Brasserie</option><option>Hôtel / Autre</option>
+            <option>Traiteur / Épicerie fine</option><option>Boucherie / Boulangerie</option>
+            <option>Drink / Cave</option><option>Siège / Bureau</option>
+          </select>
+        </div>
+        <div class="field"><label>Statut</label>
+          <select id="cl-st" class="select"><option>Client</option><option>Prospect</option><option>Inactif</option></select>
+        </div>
+      </div>
+      <div class="field"><label>Commercial référent</label><input id="cl-comm" type="text" class="input" list="comm-list" placeholder="Prénom Nom"></div>
+      <div class="field"><label>Produits travaillés</label>
+        <div class="chips" id="prod-chips"></div>
+        <div class="prod-add">
+          <input type="text" id="new-prod" class="input" placeholder="Ajouter un produit…">
+          <button class="btn-add" onclick="addProduit()"><i class="ti ti-plus"></i></button>
+        </div>
+      </div>
+      <div class="field"><label>Notes</label><textarea id="cl-notes" class="input" rows="2"></textarea></div>
+      <div class="field"><label>Coordonnées GPS <span class="field-hint">(lat, lng — ex: 50.66, 5.95)</span></label><input id="cl-lat" type="text" class="input" placeholder="50.66, 5.95"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeMod('mcli')">Annuler</button>
+      <button class="btn-gold" onclick="saveCli()"><i class="ti ti-check"></i> Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL VISITE ═══ -->
+<div class="modal-overlay" id="mvis">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Nouvelle visite</h2>
+      <button class="icon-btn-close" onclick="closeMod('mvis')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Client visité</label>
+        <select id="vi-cli" class="select"><option value="">— Choisir un client —</option></select>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Commercial</label><input id="vi-comm" type="text" class="input" list="comm-list"></div>
+        <div class="field"><label>Date</label><input id="vi-date" type="date" class="input"></div>
+      </div>
+      <div class="field"><label>Type de contact</label>
+        <div class="btn-group" id="visit-type-group">
+          <button class="type-btn on" onclick="setVisitType('Visite terrain',this)"><i class="ti ti-walk"></i> Terrain</button>
+          <button class="type-btn" onclick="setVisitType('Appel',this)"><i class="ti ti-phone"></i> Appel</button>
+          <button class="type-btn" onclick="setVisitType('Email',this)"><i class="ti ti-mail"></i> Email</button>
+          <button class="type-btn" onclick="setVisitType('Livraison',this)"><i class="ti ti-truck"></i> Livraison</button>
+        </div>
+      </div>
+      <div class="field"><label>Produits présentés</label><input id="vi-prods" type="text" class="input" placeholder="ex: Vin rouge, Champagne…"></div>
+      <div class="field"><label>Compte-rendu</label>
+        <div class="richtext-toolbar">
+          <button type="button" class="rt-btn" onclick="rtCmd('bold')" title="Gras"><b>G</b></button>
+          <button type="button" class="rt-btn" onclick="rtCmd('italic')" title="Italique"><i>I</i></button>
+          <button type="button" class="rt-btn" onclick="rtCmd('underline')" title="Souligné"><u>S</u></button>
+          <span class="rt-sep"></span>
+          <button type="button" class="rt-btn" onclick="rtCmd('insertUnorderedList')" title="Liste à puces"><i class="ti ti-list"></i></button>
+          <button type="button" class="rt-btn" onclick="rtCmd('insertOrderedList')" title="Liste numérotée"><i class="ti ti-list-numbers"></i></button>
+          <span class="rt-sep"></span>
+          <button type="button" class="rt-btn rt-todo-btn" onclick="addTodoFromNote()" title="Créer une tâche To Do"><i class="ti ti-checkbox"></i> Tâche</button>
+        </div>
+        <div id="vi-note" class="input richtext-editor" contenteditable="true" data-placeholder="Notes, résultats, prochaine action…"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeMod('mvis')">Annuler</button>
+      <button class="btn-gold" onclick="saveVisite()"><i class="ti ti-check"></i> Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL TO DO ═══ -->
+<div class="modal-overlay" id="mtodo">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="mtodo-title">Nouvelle tâche</h2>
+      <button class="icon-btn-close" onclick="closeMod('mtodo')"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label>Titre de la tâche</label><input id="td-title" type="text" class="input" placeholder="Ex: Envoyer la liste de prix…"></div>
+      <div class="field"><label>Client concerné</label>
+        <select id="td-cli" class="select"><option value="">— Aucun client lié —</option></select>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Assigné à</label><input id="td-comm" type="text" class="input" list="comm-list" placeholder="Commercial"></div>
+        <div class="field"><label>Échéance</label><input id="td-date" type="date" class="input"></div>
+      </div>
+      <div class="field"><label>Priorité</label>
+        <div class="btn-group" id="todo-prio-group">
+          <button class="type-btn" onclick="setTodoPrio('haute',this)"><i class="ti ti-arrow-up"></i> Haute</button>
+          <button class="type-btn on" onclick="setTodoPrio('normale',this)"><i class="ti ti-minus"></i> Normale</button>
+          <button class="type-btn" onclick="setTodoPrio('basse',this)"><i class="ti ti-arrow-down"></i> Basse</button>
+        </div>
+      </div>
+      <div class="field"><label>Notes</label><textarea id="td-notes" class="input" rows="2" placeholder="Détails supplémentaires…"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeMod('mtodo')">Annuler</button>
+      <button class="btn-gold" onclick="saveTodo()"><i class="ti ti-check"></i> Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<datalist id="comm-list"></datalist>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
